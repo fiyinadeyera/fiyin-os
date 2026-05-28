@@ -14,19 +14,37 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 import time
 
-CHROMEDRIVER_PATH = "/nix/store/8zj50jw4w0hby47167kqqsaqw4mm5bkd-chromedriver-unwrapped-138.0.7204.100/bin/chromedriver"
-CHROMIUM_PATH = "/nix/store/qa9cnw4v5xkxyip6mb9kxqfq1z4x2dx1-chromium-138.0.7204.100/bin/chromium"
+_REPLIT_CHROMEDRIVER = "/nix/store/8zj50jw4w0hby47167kqqsaqw4mm5bkd-chromedriver-unwrapped-138.0.7204.100/bin/chromedriver"
+_REPLIT_CHROMIUM = "/nix/store/qa9cnw4v5xkxyip6mb9kxqfq1z4x2dx1-chromium-138.0.7204.100/bin/chromium"
 
 
 def get_chrome_driver():
     options = webdriver.ChromeOptions()
-    options.binary_location = CHROMIUM_PATH
+
+    # Resolve binary: env var → Replit Nix path (if it exists) → system default
+    chromium_bin = (
+        os.environ.get("CHROMIUM_PATH")
+        or (_REPLIT_CHROMIUM if os.path.exists(_REPLIT_CHROMIUM) else None)
+    )
+    if chromium_bin:
+        options.binary_location = chromium_bin
+
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-gpu')
     options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36')
-    return webdriver.Chrome(service=Service(CHROMEDRIVER_PATH), options=options)
+
+    chromedriver_bin = (
+        os.environ.get("CHROMEDRIVER_PATH")
+        or (_REPLIT_CHROMEDRIVER if os.path.exists(_REPLIT_CHROMEDRIVER) else None)
+    )
+    if chromedriver_bin:
+        return webdriver.Chrome(service=Service(chromedriver_bin), options=options)
+
+    # Fallback: auto-download via webdriver-manager (works on Render, AWS, etc.)
+    from webdriver_manager.chrome import ChromeDriverManager
+    return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 

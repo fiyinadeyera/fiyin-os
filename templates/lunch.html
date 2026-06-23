@@ -259,11 +259,16 @@
     return (km / WALK_SPEED_KMH) * 60;
   }
 
+  function kmToMiles(km) {
+    return km * 0.621371;
+  }
+
   function buildDeals() {
     return DEAL_TEMPLATES.map((t) => {
       const coords = kmFromOffset(t.offsetKm, t.bearing);
       const minutes = walkMinutes(t.offsetKm);
-      return Object.assign({}, t, { coords: coords, walkMin: Math.round(minutes) });
+      const miles = kmToMiles(t.offsetKm);
+      return Object.assign({}, t, { coords: coords, walkMin: Math.round(minutes), miles: miles });
     })
       .filter((d) => d.walkMin <= MAX_WALK_MINUTES)
       .sort((a, b) => a.walkMin - b.walkMin);
@@ -291,7 +296,7 @@
       <div class="bg-slate-800/45 border border-slate-600/80 rounded-xl p-4 hover:bg-slate-800/70 transition">
         <div class="flex items-start justify-between gap-2 mb-2">
           <span class="text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${tagColor}">${d.tag}</span>
-          <span class="text-xs font-mono text-slate-500 whitespace-nowrap">${d.walkMin} min walk</span>
+          <span class="text-xs font-mono text-slate-500 whitespace-nowrap">${d.miles.toFixed(1)} mi &middot; ${d.walkMin} min walk</span>
         </div>
         <p class="font-medium text-slate-100 text-[15px] mb-1">${d.venue}</p>
         <p class="text-sm text-slate-300">${d.deal}</p>

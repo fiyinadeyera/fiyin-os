@@ -457,6 +457,10 @@ def risk():
 def events():
     return render_template("events.html", page="events")
 
+@app.route("/lunch")
+def lunch():
+    return render_template("lunch.html", page="lunch")
+
 
 def get_date_range(date_filter):
     """Get date range based on filter selection."""

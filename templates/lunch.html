@@ -36,8 +36,11 @@
                 </div>
 
                 <div class="flex gap-2 mb-2" id="lsManualInput" hidden>
-                    <input type="text" id="lsManualAddress" placeholder="Neighborhood or address"
-                        class="flex-1 px-4 py-2.5 bg-slate-800/80 border border-slate-600 rounded-lg text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent transition">
+                    <div class="relative flex-1">
+                        <input type="text" id="lsManualAddress" placeholder="Neighborhood or address" autocomplete="off"
+                            class="w-full px-4 py-2.5 bg-slate-800/80 border border-slate-600 rounded-lg text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent transition">
+                        <ul id="lsSuggestions" hidden class="absolute z-10 left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl overflow-hidden max-h-60 overflow-y-auto"></ul>
+                    </div>
                     <button id="lsManualSubmit" class="px-4 py-2.5 text-sm bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition">Go</button>
                 </div>
 
@@ -94,6 +97,7 @@
   const manualInput = document.getElementById("lsManualInput");
   const manualAddress = document.getElementById("lsManualAddress");
   const manualSubmit = document.getElementById("lsManualSubmit");
+  const suggestionsList = document.getElementById("lsSuggestions");
   const filtersSection = document.getElementById("lsFiltersSection");
   const resultsSection = document.getElementById("lsResultsSection");
   const resultsCount = document.getElementById("lsResultsCount");
@@ -111,7 +115,63 @@
   manualSubmit.addEventListener("click", useManualLocation);
   manualAddress.addEventListener("keydown", (e) => {
     if (e.key === "Enter") useManualLocation();
+    if (e.key === "Escape") hideSuggestions();
   });
+
+  let selectedSuggestion = null;
+  let suggestDebounce = null;
+
+  manualAddress.addEventListener("input", () => {
+    selectedSuggestion = null;
+    const query = manualAddress.value.trim();
+    clearTimeout(suggestDebounce);
+    if (query.length < 3) {
+      hideSuggestions();
+      return;
+    }
+    suggestDebounce = setTimeout(() => fetchSuggestions(query), 300);
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!suggestionsList.contains(e.target) && e.target !== manualAddress) hideSuggestions();
+  });
+
+  function hideSuggestions() {
+    suggestionsList.hidden = true;
+    suggestionsList.innerHTML = "";
+  }
+
+  function fetchSuggestions(query) {
+    const url = "https://nominatim.openstreetmap.org/search?format=json&limit=5&q=" + encodeURIComponent(query);
+    fetch(url, { headers: { "Accept": "application/json" } })
+      .then((res) => res.json())
+      .then((results) => renderSuggestions(results || []))
+      .catch(() => hideSuggestions());
+  }
+
+  function renderSuggestions(results) {
+    if (results.length === 0) {
+      hideSuggestions();
+      return;
+    }
+    suggestionsList.innerHTML = results
+      .map(
+        (r, i) =>
+          `<li data-index="${i}" class="px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-700 cursor-pointer transition">${r.display_name}</li>`
+      )
+      .join("");
+    suggestionsList.hidden = false;
+
+    Array.from(suggestionsList.children).forEach((li, i) => {
+      li.addEventListener("click", () => {
+        const r = results[i];
+        manualAddress.value = r.display_name;
+        selectedSuggestion = { lat: parseFloat(r.lat), lng: parseFloat(r.lon) };
+        hideSuggestions();
+        useManualLocation();
+      });
+    });
+  }
 
   document.querySelectorAll(".ls-chip").forEach((chip) => {
     chip.addEventListener("click", () => {
@@ -146,12 +206,36 @@
     );
   }
 
+  function shortLabel(text) {
+    const parts = text.split(",").map((p) => p.trim());
+    return parts.slice(0, 2).join(", ");
+  }
+
   function useManualLocation() {
     const value = manualAddress.value.trim();
     if (!value) return;
-    userLocation = { lat: 40.7128, lng: -74.006 };
-    statusPill.textContent = value;
-    onLocationReady();
+    if (selectedSuggestion) {
+      userLocation = selectedSuggestion;
+      statusPill.textContent = shortLabel(value);
+      onLocationReady();
+      return;
+    }
+    locateMsg.textContent = "Pick a suggestion from the dropdown for an accurate location.";
+    const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(value);
+    fetch(url, { headers: { "Accept": "application/json" } })
+      .then((res) => res.json())
+      .then((results) => {
+        if (results && results.length > 0) {
+          userLocation = { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) };
+          statusPill.textContent = shortLabel(value);
+          onLocationReady();
+        } else {
+          locateMsg.textContent = "Couldn't find that location. Try a more specific address.";
+        }
+      })
+      .catch(() => {
+        locateMsg.textContent = "Couldn't look up that location right now.";
+      });
   }
 
   function onLocationReady() {

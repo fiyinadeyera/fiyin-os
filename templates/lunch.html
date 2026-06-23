@@ -4,331 +4,65 @@
 
 {% block head_extra %}
 <style>
-    :root {
-        --ls-bg: #FAF7F2;
-        --ls-surface: #FFFFFF;
-        --ls-accent: #1F6F5C;
-        --ls-accent-dark: #154E41;
-        --ls-text-primary: #1C1B19;
-        --ls-text-secondary: #5B5650;
-        --ls-text-muted: #8C8680;
-        --ls-border: #E3DDD3;
+    @keyframes lsSlideIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
     }
-
-    .ls-root {
-        min-height: 100vh;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-        background: var(--ls-bg);
-        color: var(--ls-text-primary);
-    }
-
-    .ls-root button, .ls-root input { font-family: inherit; }
-
-    .ls-label {
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--ls-accent-dark);
-        margin: 0 0 8px 0;
-    }
-
-    .ls-heading {
-        font-size: 28px;
-        font-weight: 700;
-        line-height: 1.2;
-        margin: 0 0 8px 0;
-        color: var(--ls-text-primary);
-    }
-
-    .ls-body {
-        font-size: 16px;
-        line-height: 1.5;
-        color: var(--ls-text-secondary);
-        margin: 0;
-    }
-
-    .ls-caption {
-        font-size: 13px;
-        color: var(--ls-text-muted);
-        margin: 0;
-    }
-
-    .ls-mono {
-        font-family: "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
-        font-size: 13px;
-        color: var(--ls-text-muted);
-    }
-
-    .ls-topbar {
-        background: var(--ls-bg);
-        border-bottom: 1px solid var(--ls-border);
-    }
-
-    .ls-topbar__inner {
-        max-width: 1280px;
-        margin: 0 auto;
-        padding: 12px 16px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-
-    .ls-brand {
-        font-size: 14px;
-        font-weight: 800;
-        letter-spacing: 0.06em;
-        color: var(--ls-text-primary);
-    }
-
-    .ls-status {
-        font-family: "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
-        font-size: 12px;
-        color: var(--ls-text-muted);
-        padding: 4px 8px;
-        border: 1px solid var(--ls-border);
-        border-radius: 999px;
-        white-space: nowrap;
-    }
-
-    .ls-status.is-live {
-        color: var(--ls-accent-dark);
-        border-color: var(--ls-accent);
-    }
-
-    .ls-app {
-        max-width: 1280px;
-        margin: 0 auto;
-        padding: 24px 16px 48px;
-    }
-
-    .ls-intro { margin-bottom: 24px; }
-
-    .ls-locate {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        align-items: center;
-        margin-bottom: 32px;
-    }
-
-    .ls-btn {
-        font-size: 15px;
-        font-weight: 600;
-        padding: 12px 16px;
-        border-radius: 8px;
-        border: 1px solid transparent;
-        cursor: pointer;
-        min-height: 44px;
-        transition: opacity 0.15s ease;
-    }
-
-    .ls-btn:active { opacity: 0.85; }
-
-    .ls-btn--primary {
-        background: var(--ls-accent);
-        color: #FFFFFF;
-    }
-
-    .ls-btn--ghost {
-        background: transparent;
-        color: var(--ls-text-secondary);
-        border-color: var(--ls-border);
-    }
-
-    .ls-manual-input {
-        display: flex;
-        gap: 8px;
-        width: 100%;
-    }
-
-    .ls-manual-input[hidden] { display: none; }
-
-    .ls-manual-input input {
-        flex: 1;
-        min-height: 44px;
-        padding: 0 12px;
-        border: 1px solid var(--ls-border);
-        border-radius: 8px;
-        font-size: 15px;
-        color: var(--ls-text-primary);
-        background: var(--ls-surface);
-    }
-
-    .ls-manual-input input:focus {
-        outline: 2px solid var(--ls-accent);
-        outline-offset: 1px;
-    }
-
-    .ls-locate .ls-caption { width: 100%; }
-
-    .ls-filters {
-        display: flex;
-        gap: 8px;
-        overflow-x: auto;
-        padding-bottom: 8px;
-        margin-bottom: 24px;
-        scrollbar-width: none;
-    }
-
-    .ls-filters::-webkit-scrollbar { display: none; }
-
-    .ls-chip {
-        flex: 0 0 auto;
-        font-size: 14px;
-        font-weight: 600;
-        padding: 8px 16px;
-        min-height: 44px;
-        border-radius: 999px;
-        border: 1px solid var(--ls-border);
-        background: var(--ls-surface);
-        color: var(--ls-text-secondary);
-        cursor: pointer;
-        white-space: nowrap;
-    }
-
-    .ls-chip.is-active {
-        background: var(--ls-accent);
-        border-color: var(--ls-accent);
-        color: #FFFFFF;
-    }
-
-    .ls-results-count { margin-bottom: 16px; }
-
-    .ls-card-list {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
-    }
-
-    .ls-card {
-        background: var(--ls-surface);
-        border: 1px solid var(--ls-border);
-        border-radius: 12px;
-        padding: 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .ls-card__top {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 8px;
-    }
-
-    .ls-card__tag {
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        color: var(--ls-accent-dark);
-        background: #EAF3F0;
-        padding: 2px 8px;
-        border-radius: 999px;
-        white-space: nowrap;
-    }
-
-    .ls-card__walk {
-        font-family: "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
-        font-size: 12px;
-        color: var(--ls-text-muted);
-        white-space: nowrap;
-    }
-
-    .ls-card__venue {
-        font-size: 17px;
-        font-weight: 700;
-        color: var(--ls-text-primary);
-        margin: 0;
-    }
-
-    .ls-card__deal {
-        font-size: 15px;
-        color: var(--ls-text-secondary);
-        margin: 0;
-        line-height: 1.4;
-    }
-
-    .ls-empty {
-        padding: 48px 0;
-        text-align: center;
-    }
-
-    .ls-footer {
-        max-width: 1280px;
-        margin: 0 auto;
-        padding: 24px 16px 48px;
-        border-top: 1px solid var(--ls-border);
-        text-align: center;
-    }
-
-    @media (max-width: 768px) {
-        .ls-card-list { grid-template-columns: repeat(2, 1fr); }
-    }
-
-    @media (max-width: 480px) {
-        .ls-topbar__inner { padding: 12px; }
-        .ls-app { padding: 16px 12px 32px; }
-        .ls-heading { font-size: 22px; }
-        .ls-body { font-size: 15px; }
-        .ls-card-list { grid-template-columns: 1fr; }
-        .ls-locate { flex-direction: column; align-items: stretch; }
-        .ls-btn { width: 100%; }
-    }
+    .ls-slide-in { animation: lsSlideIn 0.3s ease; }
+    [hidden] { display: none !important; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="ls-root">
+<div class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.16),_transparent_45%),radial-gradient(circle_at_70%_10%,_rgba(168,85,247,0.14),_transparent_38%)]">
+    <div class="mx-auto w-full max-w-3xl px-4 py-8 md:py-12">
 
-  <header class="ls-topbar">
-    <div class="ls-topbar__inner">
-      <span class="ls-brand">LUNCH SPECIALS</span>
-      <span class="ls-status" id="lsStatusPill">locating…</span>
+        <div class="mb-8 text-center">
+            <h1 class="text-3xl md:text-4xl font-semibold text-white mb-2">Lunch Specials</h1>
+            <p class="text-sm text-slate-400">Lunch specials and happy hours near you, sorted by how close they are</p>
+        </div>
+
+        <div class="bg-slate-900/75 backdrop-blur-xl border border-slate-700/80 rounded-3xl shadow-2xl overflow-hidden">
+            <div class="p-6 md:p-8">
+
+                <div class="flex flex-wrap items-center gap-3 mb-2" id="lsLocateSection">
+                    <button id="lsLocateBtn" class="px-4 py-2.5 text-sm bg-gradient-to-r from-blue-100 to-sky-100 hover:from-blue-50 hover:to-sky-50 text-slate-900 font-semibold rounded-lg transition shadow-md shadow-blue-900/20">
+                        Use my location
+                    </button>
+                    <button id="lsManualBtn" class="px-4 py-2.5 text-sm bg-slate-800 text-slate-300 font-medium rounded-lg border border-slate-600 hover:bg-slate-700 transition">
+                        Enter a location instead
+                    </button>
+                    <span id="lsStatusPill" class="text-xs font-mono text-slate-400 px-2.5 py-1 rounded-full border border-slate-600">locating&hellip;</span>
+                </div>
+
+                <div class="flex gap-2 mb-2" id="lsManualInput" hidden>
+                    <input type="text" id="lsManualAddress" placeholder="Neighborhood or address"
+                        class="flex-1 px-4 py-2.5 bg-slate-800/80 border border-slate-600 rounded-lg text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent transition">
+                    <button id="lsManualSubmit" class="px-4 py-2.5 text-sm bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition">Go</button>
+                </div>
+
+                <p class="text-xs text-slate-500 mb-6" id="lsLocateMsg"></p>
+
+                <div class="flex gap-2 mb-6 overflow-x-auto" id="lsFiltersSection" hidden>
+                    <button data-filter="all" class="ls-chip px-4 py-2 text-xs font-medium rounded-full bg-blue-600 text-white transition whitespace-nowrap">All</button>
+                    <button data-filter="lunch" class="ls-chip px-4 py-2 text-xs font-medium rounded-full bg-slate-800 text-slate-300 border border-slate-600 hover:bg-slate-700 transition whitespace-nowrap">Lunch specials</button>
+                    <button data-filter="happy-hour" class="ls-chip px-4 py-2 text-xs font-medium rounded-full bg-slate-800 text-slate-300 border border-slate-600 hover:bg-slate-700 transition whitespace-nowrap">Happy hour</button>
+                </div>
+
+                <div id="lsResultsSection" hidden>
+                    <p class="text-sm text-slate-400 mb-3" id="lsResultsCount"></p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="lsCardList"></div>
+                </div>
+
+                <div id="lsEmptyState" class="hidden text-center py-8 text-slate-400 text-sm">
+                    Nothing matching that filter within 15 minutes on foot right now.
+                </div>
+
+            </div>
+        </div>
+
+        <p class="mt-6 text-xs text-slate-600 text-center">Demo data right now. Real lunch deals coming once venues are onboarded.</p>
     </div>
-  </header>
-
-  <main class="ls-app">
-
-    <section class="ls-intro">
-      <p class="ls-label">RIGHT NOW &middot; WITHIN 15 MIN WALK</p>
-      <h1 class="ls-heading">Where to go for lunch</h1>
-      <p class="ls-body">Lunch specials and happy hours near you, sorted by how close they are.</p>
-    </section>
-
-    <section class="ls-locate" id="lsLocateSection">
-      <button class="ls-btn ls-btn--primary" id="lsLocateBtn">Use my location</button>
-      <button class="ls-btn ls-btn--ghost" id="lsManualBtn">Enter a location instead</button>
-      <div class="ls-manual-input" id="lsManualInput" hidden>
-        <input type="text" id="lsManualAddress" placeholder="Neighborhood or address" />
-        <button class="ls-btn ls-btn--primary" id="lsManualSubmit">Go</button>
-      </div>
-      <p class="ls-caption" id="lsLocateMsg"></p>
-    </section>
-
-    <section class="ls-filters" id="lsFiltersSection" hidden>
-      <button class="ls-chip is-active" data-filter="all">All</button>
-      <button class="ls-chip" data-filter="lunch">Lunch specials</button>
-      <button class="ls-chip" data-filter="happy-hour">Happy hour</button>
-    </section>
-
-    <section class="ls-results" id="lsResultsSection" hidden>
-      <p class="ls-caption ls-results-count" id="lsResultsCount"></p>
-      <div class="ls-card-list" id="lsCardList"></div>
-    </section>
-
-    <section class="ls-empty" id="lsEmptyState" hidden>
-      <p class="ls-body">Nothing matching that filter within 15 minutes on foot right now.</p>
-    </section>
-
-  </main>
-
-  <footer class="ls-footer">
-    <p class="ls-caption">Demo data right now. Real lunch deals coming once venues are onboarded.</p>
-  </footer>
-
 </div>
 {% endblock %}
 
@@ -366,6 +100,9 @@
   const cardList = document.getElementById("lsCardList");
   const emptyState = document.getElementById("lsEmptyState");
 
+  const ACTIVE_CHIP = ["bg-blue-600", "text-white"];
+  const INACTIVE_CHIP = ["bg-slate-800", "text-slate-300", "border", "border-slate-600"];
+
   locateBtn.addEventListener("click", useMyLocation);
   manualBtn.addEventListener("click", () => {
     manualInput.hidden = false;
@@ -378,8 +115,12 @@
 
   document.querySelectorAll(".ls-chip").forEach((chip) => {
     chip.addEventListener("click", () => {
-      document.querySelectorAll(".ls-chip").forEach((c) => c.classList.remove("is-active"));
-      chip.classList.add("is-active");
+      document.querySelectorAll(".ls-chip").forEach((c) => {
+        c.classList.remove(...ACTIVE_CHIP);
+        c.classList.add(...INACTIVE_CHIP);
+      });
+      chip.classList.remove(...INACTIVE_CHIP);
+      chip.classList.add(...ACTIVE_CHIP);
       activeFilter = chip.dataset.filter;
       renderResults();
     });
@@ -414,11 +155,12 @@
   }
 
   function onLocationReady() {
-    statusPill.classList.add("is-live");
+    statusPill.classList.add("text-blue-300", "border-blue-400/60");
     if (statusPill.textContent === "locating…") statusPill.textContent = "live location";
     locateMsg.textContent = "";
     filtersSection.hidden = false;
     resultsSection.hidden = false;
+    resultsSection.classList.add("ls-slide-in");
     renderResults();
   }
 
@@ -449,26 +191,29 @@
     if (deals.length === 0) {
       cardList.innerHTML = "";
       resultsCount.textContent = "";
-      emptyState.hidden = false;
+      emptyState.classList.remove("hidden");
       return;
     }
 
-    emptyState.hidden = true;
+    emptyState.classList.add("hidden");
     resultsCount.textContent = deals.length + " spot" + (deals.length === 1 ? "" : "s") + " within 15 minutes on foot";
 
     cardList.innerHTML = deals
-      .map(
-        (d) => `
-      <div class="ls-card">
-        <div class="ls-card__top">
-          <span class="ls-card__tag">${d.tag}</span>
-          <span class="ls-card__walk ls-mono">${d.walkMin} min walk</span>
+      .map((d) => {
+        const tagColor = d.category === "lunch"
+          ? "bg-emerald-900/30 text-emerald-300"
+          : "bg-amber-900/30 text-amber-300";
+        return `
+      <div class="bg-slate-800/45 border border-slate-600/80 rounded-xl p-4 hover:bg-slate-800/70 transition">
+        <div class="flex items-start justify-between gap-2 mb-2">
+          <span class="text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${tagColor}">${d.tag}</span>
+          <span class="text-xs font-mono text-slate-500 whitespace-nowrap">${d.walkMin} min walk</span>
         </div>
-        <p class="ls-card__venue">${d.venue}</p>
-        <p class="ls-card__deal">${d.deal}</p>
+        <p class="font-medium text-slate-100 text-[15px] mb-1">${d.venue}</p>
+        <p class="text-sm text-slate-300">${d.deal}</p>
       </div>
-    `
-      )
+    `;
+      })
       .join("");
   }
 })();

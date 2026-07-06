@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import os
 import hmac
 import hashlib
@@ -444,6 +444,10 @@ def index():
 @app.route("/signalrank")
 def signalrank():
     return render_template("signalrank.html", page="signalrank")
+
+@app.route("/subway")
+def subway():
+    return send_from_directory(os.path.join(BASE_DIR, "static"), "subway.html")
 
 @app.route("/agent")
 def agent():

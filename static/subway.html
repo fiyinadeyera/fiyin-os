@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NYC Subway Neighborhood Map</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js"></script>
+
+<style>
+/* ============================================================
+   Base / tokens
+   ============================================================ */
+:root {
+  --accent: #0F62A6;
+  --text-primary: #17181A;
+  --text-secondary: #4F5560;
+  --text-muted: #7A808C;
+  --border: #E3E1DC;
+  --bg: #F7F6F3;
+  --surface: #FFFFFF;
+  --shadow: 0 2px 12px rgba(23, 24, 26, 0.12);
+  --radius: 10px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--text-primary);
+  background: var(--bg);
+}
+
+#root, #map { height: 100%; }
+#map { z-index: 1; background: #DDE7EE; }
+
+button { font: inherit; cursor: pointer; }
+
+/* ============================================================
+   Typography roles
+   ============================================================ */
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.heading {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.body-text { font-size: 14px; line-height: 1.45; color: var(--text-secondary); }
+.meta { font-family: var(--mono); font-size: 12px; color: var(--text-muted); }
+
+/* ============================================================
+   Top panel: search + line chips (mobile-first)
+   ============================================================ */
+.panel {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1100;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.panel > * { pointer-events: auto; }
+
+.search-wrap { position: relative; }
+
+.search-input {
+  width: 100%;
+  height: 48px;
+  padding: 0 44px 0 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 16px;
+  color: var(--text-primary);
+  outline: none;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--text-muted); }
+
+.search-clear {
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 44px; height: 44px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  border-radius: var(--radius);
+}
+
+.search-results {
+  position: absolute;
+  top: 52px; left: 0; right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.search-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  text-align: left;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.search-result:last-child { border-bottom: none; }
+.search-result:hover, .search-result:focus { background: var(--bg); }
+.search-empty {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* Line filter chips */
+.chips {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.chips::-webkit-scrollbar { display: none; }
+
+.chip {
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  border-radius: 8px;
+}
+.chip[aria-pressed="true"] { background: var(--bg); box-shadow: inset 0 0 0 2px var(--text-primary); }
+.chip:hover { background: var(--bg); }
+
+.bullet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px; height: 26px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+.bullet.dark-text { color: #17181A; }
+.bullet.sm { min-width: 22px; height: 22px; font-size: 11px; }
+
+.filter-status {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.filter-status b { color: var(--text-primary); }
+
+/* ============================================================
+   Detail sheet (mobile: bottom sheet)
+   ============================================================ */
+.details {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 1100;
+  max-height: 46vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -4px 20px rgba(23, 24, 26, 0.15);
+}
+.details-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 8px 10px 16px;
+}
+.details-close {
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  border-radius: var(--radius);
+}
+.details-close:hover { background: var(--bg); color: var(--text-primary); }
+
+.details-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0 16px 12px;
+}
+.no-service { padding: 0 16px 16px; font-size: 14px; color: var(--text-muted); }
+
+.details-body {
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  padding: 10px 16px 16px;
+}
+.station-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.station-row:last-child { border-bottom: none; }
+.station-name { font-size: 14px; color: var(--text-primary); }
+.station-dist { flex: 0 0 auto; }
+.station-bullets { display: flex; gap: 3px; margin-top: 3px; flex-wrap: wrap; }
+.details-note { margin-top: 12px; }
+
+/* ============================================================
+   Loading / error overlay
+   ============================================================ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: var(--bg);
+  text-align: center;
+  padding: 24px;
+}
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.retry-btn {
+  min-height: 44px;
+  padding: 0 24px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Leaflet tweaks */
+.leaflet-control-zoom { margin-bottom: 52vh !important; }
+.leaflet-container { font-family: inherit; }
+
+/* ============================================================
+   Media queries (tablet / desktop)
+   ============================================================ */
+@media (min-width: 769px) {
+  .panel {
+    right: auto;
+    width: 360px;
+    padding: 16px;
+    gap: 10px;
+  }
+  .chips { flex-wrap: wrap; }
+  .details {
+    left: 16px; right: auto; bottom: 16px;
+    width: 360px;
+    max-height: 52vh;
+    border-radius: 14px;
+  }
+  .leaflet-control-zoom { margin-bottom: 12px !important; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+(function () {
+"use strict";
+
+const { useState, useEffect, useRef, useMemo, createElement } = React;
+const html = htm.bind(createElement);
+
+/* ============================================================
+   Constants: MTA route colors and canonical order
+   ============================================================ */
+const ROUTE_ORDER = ["1","2","3","4","5","6","7","A","C","E","B","D","F","M","G","J","Z","L","N","Q","R","W","S","SIR"];
+const ROUTE_COLORS = {
+  "1":"#EE352E","2":"#EE352E","3":"#EE352E",
+  "4":"#00933C","5":"#00933C","6":"#00933C",
+  "7":"#B933AD",
+  "A":"#0039A6","C":"#0039A6","E":"#0039A6",
+  "B":"#FF6319","D":"#FF6319","F":"#FF6319","M":"#FF6319",
+  "G":"#6CBE45",
+  "J":"#996633","Z":"#996633",
+  "L":"#A7A9AC",
+  "N":"#FCCC0A","Q":"#FCCC0A","R":"#FCCC0A","W":"#FCCC0A",
+  "S":"#808183","SIR":"#0039A6"
+};
+const DARK_TEXT_ROUTES = new Set(["N","Q","R","W"]);
+const NO_SERVICE_FILL = "#D8D6D0";
+const WALK_BUFFER_M = 500;
+
+const NTA_URL = "https://data.cityofnewyork.us/api/geospatial/9nt8-h7nd?method=export&format=GeoJSON";
+const STATIONS_URL = "https://data.ny.gov/resource/39hk-dx4f.json?$limit=1000";
+
+/* ============================================================
+   Geometry helpers
+   ============================================================ */
+function geomBbox(geom) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+  for (const poly of polys) for (const ring of poly) for (const [x, y] of ring) {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  return [minX, minY, maxX, maxY];
+}
+
+function pointInRing(x, y, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+
+function pointInGeom(x, y, geom) {
+  const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+  for (const poly of polys) {
+    if (pointInRing(x, y, poly[0])) {
+      let inHole = false;
+      for (let k = 1; k < poly.length; k++) {
+        if (pointInRing(x, y, poly[k])) { inHole = true; break; }
+      }
+      if (!inHole) return true;
+    }
+  }
+  return false;
+}
+
+/* Approximate distance in meters from a point to a polygon boundary,
+   using a local equirectangular projection around the point. */
+function distToGeomMeters(lon, lat, geom) {
+  const kx = Math.cos(lat * Math.PI / 180) * 111320;
+  const ky = 110574;
+  let best = Infinity;
+  const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+  for (const poly of polys) for (const ring of poly) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const ax = (ring[j][0] - lon) * kx, ay = (ring[j][1] - lat) * ky;
+      const bx = (ring[i][0] - lon) * kx, by = (ring[i][1] - lat) * ky;
+      const dx = bx - ax, dy = by - ay;
+      let t = 0;
+      const len2 = dx * dx + dy * dy;
+      if (len2 > 0) t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2));
+      const px = ax + t * dx, py = ay + t * dy;
+      const d2 = px * px + py * py;
+      if (d2 < best) best = d2;
+    }
+  }
+  return Math.sqrt(best);
+}
+
+/* ============================================================
+   Data loading and matching
+   ============================================================ */
+async function fetchWithProgress(url, onProgress) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Request failed: " + res.status);
+  const reader = res.body && res.body.getReader ? res.body.getReader() : null;
+  if (!reader) return res.text();
+  let received = 0;
+  const chunks = [];
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    onProgress(received);
+  }
+  const all = new Uint8Array(received);
+  let pos = 0;
+  for (const c of chunks) { all.set(c, pos); pos += c.length; }
+  return new TextDecoder().decode(all);
+}
+
+function sortRoutes(routes) {
+  return [...routes].sort((a, b) => ROUTE_ORDER.indexOf(a) - ROUTE_ORDER.indexOf(b));
+}
+
+/* Match stations to neighborhoods: a station serves a neighborhood if it
+   sits inside it or within WALK_BUFFER_M of its boundary. */
+function buildModel(ntaGeo, stationRows) {
+  const nbhds = ntaGeo.features
+    .filter(f => f.geometry)
+    .map(f => ({
+      id: f.properties.nta2020,
+      name: f.properties.ntaname,
+      boro: f.properties.boroname,
+      feature: f,
+      bbox: geomBbox(f.geometry),
+      routes: new Set(),
+      stationMap: new Map()
+    }));
+
+  const PAD = 0.007; /* about 600 m in degrees, generous bbox prefilter */
+
+  for (const row of stationRows) {
+    const lon = parseFloat(row.gtfs_longitude);
+    const lat = parseFloat(row.gtfs_latitude);
+    if (!isFinite(lon) || !isFinite(lat)) continue;
+    const routes = (row.daytime_routes || "").trim().split(/\s+/).filter(Boolean);
+    if (!routes.length) continue;
+
+    for (const nb of nbhds) {
+      const [minX, minY, maxX, maxY] = nb.bbox;
+      if (lon < minX - PAD || lon > maxX + PAD || lat < minY - PAD || lat > maxY + PAD) continue;
+
+      const inside = pointInGeom(lon, lat, nb.feature.geometry);
+      let dist = 0;
+      if (!inside) {
+        dist = distToGeomMeters(lon, lat, nb.feature.geometry);
+        if (dist > WALK_BUFFER_M) continue;
+      }
+
+      for (const r of routes) nb.routes.add(r);
+      /* Merge platforms that share a stop name (station complexes) */
+      const key = row.stop_name;
+      const prev = nb.stationMap.get(key);
+      if (prev) {
+        for (const r of routes) prev.routes.add(r);
+        if (dist < prev.dist) { prev.dist = dist; prev.inside = prev.inside || inside; }
+      } else {
+        nb.stationMap.set(key, { name: key, routes: new Set(routes), dist, inside });
+      }
+    }
+  }
+
+  const routeCounts = {};
+  for (const r of ROUTE_ORDER) routeCounts[r] = 0;
+
+  for (const nb of nbhds) {
+    nb.stations = [...nb.stationMap.values()]
+      .map(s => ({ ...s, routes: sortRoutes(s.routes) }))
+      .sort((a, b) => a.dist - b.dist);
+    delete nb.stationMap;
+    nb.routesSorted = sortRoutes(nb.routes);
+    for (const r of nb.routesSorted) routeCounts[r]++;
+
+    /* Dominant trunk color: count route occurrences across stations */
+    const colorCount = new Map();
+    for (const s of nb.stations) for (const r of s.routes) {
+      const c = ROUTE_COLORS[r];
+      colorCount.set(c, (colorCount.get(c) || 0) + 1);
+    }
+    let bestColor = null, bestN = 0;
+    for (const r of ROUTE_ORDER) {
+      const c = ROUTE_COLORS[r];
+      const n = colorCount.get(c) || 0;
+      if (n > bestN) { bestN = n; bestColor = c; }
+    }
+    nb.color = bestColor;
+  }
+
+  const stations = stationRows
+    .map(row => ({
+      name: row.stop_name,
+      lon: parseFloat(row.gtfs_longitude),
+      lat: parseFloat(row.gtfs_latitude),
+      routes: (row.daytime_routes || "").trim().split(/\s+/).filter(Boolean)
+    }))
+    .filter(s => isFinite(s.lon) && isFinite(s.lat));
+
+  return { nbhds, stations, routeCounts };
+}
+
+/* ============================================================
+   Small components
+   ============================================================ */
+function Bullet({ route, small }) {
+  const cls = "bullet" + (small ? " sm" : "") + (DARK_TEXT_ROUTES.has(route) ? " dark-text" : "");
+  return html`<span class=${cls} style=${{ background: ROUTE_COLORS[route] }}>${route}</span>`;
+}
+
+/* ============================================================
+   App
+   ============================================================ */
+function App() {
+  const [status, setStatus] = useState("Loading neighborhoods and stations");
+  const [error, setError] = useState(null);
+  const [model, setModel] = useState(null);
+  const [query, setQuery] = useState("");
+  const [activeRoute, setActiveRoute] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
+
+  const mapRef = useRef(null);
+  const layersRef = useRef(new Map());     /* nbhd id -> leaflet layer */
+  const nbhdsRef = useRef(new Map());      /* nbhd id -> nbhd model */
+  const stationLayerRef = useRef(null);
+  const stateRef = useRef({ activeRoute: null, selectedId: null });
+  stateRef.current = { activeRoute, selectedId };
+
+  /* ---- Leaflet init (once) ---- */
+  useEffect(() => {
+    const map = L.map("map", {
+      preferCanvas: true,
+      zoomControl: false,
+      maxBounds: [[40.35, -74.5], [41.05, -73.45]],
+      maxBoundsViscosity: 0.6
+    }).setView([40.72, -73.94], 11);
+    L.control.zoom({ position: "bottomright" }).addTo(map);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      maxZoom: 18
+    }).addTo(map);
+    mapRef.current = map;
+    return () => map.remove();
+  }, []);
+
+  /* ---- Data load ---- */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [ntaText, stText] = await Promise.all([
+          fetchWithProgress(NTA_URL, b => {
+            if (!cancelled) setStatus("Loading neighborhoods, " + (b / 1048576).toFixed(1) + " MB");
+          }),
+          fetchWithProgress(STATIONS_URL, () => {})
+        ]);
+        if (cancelled) return;
+        setStatus("Matching stations to neighborhoods");
+        /* Let the status paint before the heavy pass */
+        await new Promise(r => setTimeout(r, 30));
+        const m = buildModel(JSON.parse(ntaText), JSON.parse(stText));
+        if (!cancelled) setModel(m);
+      } catch (e) {
+        if (!cancelled) setError(e.message || String(e));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  /* ---- Styling ---- */
+  function styleFor(nb) {
+    const { activeRoute: route, selectedId: sel } = stateRef.current;
+    let fillColor, fillOpacity, color = "#A9A6A0", weight = 1, opacity = 0.7;
+    if (route) {
+      if (nb.routes.has(route)) {
+        fillColor = ROUTE_COLORS[route];
+        fillOpacity = route === "N" || ROUTE_COLORS[route] === "#FCCC0A" ? 0.6 : 0.5;
+      } else {
+        fillColor = NO_SERVICE_FILL; fillOpacity = 0.15; opacity = 0.35;
+      }
+    } else {
+      fillColor = nb.color || NO_SERVICE_FILL;
+      fillOpacity = nb.color ? 0.45 : 0.22;
+    }
+    if (nb.id === sel) { color = "#17181A"; weight = 3; opacity = 1; }
+    return { fillColor, fillOpacity, color, weight, opacity };
+  }
+
+  function restyleAll() {
+    for (const [id, layer] of layersRef.current) {
+      const nb = nbhdsRef.current.get(id);
+      layer.setStyle(styleFor(nb));
+      if (id === stateRef.current.selectedId && layer.bringToFront) layer.bringToFront();
+    }
+  }
+
+  /* ---- Build neighborhood layer when model is ready ---- */
+  useEffect(() => {
+    if (!model || !mapRef.current) return;
+    const map = mapRef.current;
+    for (const nb of model.nbhds) nbhdsRef.current.set(nb.id, nb);
+
+    const group = L.geoJSON(
+      { type: "FeatureCollection", features: model.nbhds.map(nb => nb.feature) },
+      {
+        style: f => styleFor(nbhdsRef.current.get(f.properties.nta2020)),
+        onEachFeature: (f, layer) => {
+          const id = f.properties.nta2020;
+          layersRef.current.set(id, layer);
+          layer.on("click", () => {
+            setSelectedId(prev => (prev === id ? null : id));
+          });
+          layer.on("mouseover", () => {
+            if (stateRef.current.selectedId !== id) layer.setStyle({ weight: 2, color: "#5A5F6A" });
+          });
+          layer.on("mouseout", () => {
+            layer.setStyle(styleFor(nbhdsRef.current.get(id)));
+          });
+        }
+      }
+    ).addTo(map);
+
+    map.fitBounds(group.getBounds(), { padding: [10, 10] });
+    return () => { group.remove(); layersRef.current.clear(); };
+  }, [model]);
+
+  /* ---- Restyle on filter / selection change ---- */
+  useEffect(() => {
+    if (!model) return;
+    restyleAll();
+  }, [model, activeRoute, selectedId]);
+
+  /* ---- Station dots for the active route ---- */
+  useEffect(() => {
+    if (!model || !mapRef.current) return;
+    if (stationLayerRef.current) { stationLayerRef.current.remove(); stationLayerRef.current = null; }
+    if (!activeRoute) return;
+    const group = L.layerGroup();
+    for (const s of model.stations) {
+      if (!s.routes.includes(activeRoute)) continue;
+      L.circleMarker([s.lat, s.lon], {
+        radius: 4.5,
+        color: "#FFFFFF",
+        weight: 1.5,
+        fillColor: "#17181A",
+        fillOpacity: 1
+      }).bindTooltip(s.name, { direction: "top", offset: [0, -6] }).addTo(group);
+    }
+    group.addTo(mapRef.current);
+    stationLayerRef.current = group;
+  }, [model, activeRoute]);
+
+  /* ---- Search ---- */
+  const results = useMemo(() => {
+    if (!model || query.trim().length < 2) return null;
+    const q = query.trim().toLowerCase();
+    const starts = [], contains = [];
+    for (const nb of model.nbhds) {
+      const name = nb.name.toLowerCase();
+      if (name.startsWith(q)) starts.push(nb);
+      else if (name.includes(q)) contains.push(nb);
+    }
+    return [...starts, ...contains].slice(0, 8);
+  }, [model, query]);
+
+  function selectNeighborhood(id, zoom) {
+    setSelectedId(id);
+    setQuery("");
+    if (zoom) {
+      const layer = layersRef.current.get(id);
+      if (layer && mapRef.current) {
+        mapRef.current.fitBounds(layer.getBounds(), { padding: [40, 40], maxZoom: 14 });
+      }
+    }
+  }
+
+  /* ---- Render ---- */
+  if (error) {
+    return html`
+      <div id="map"></div>
+      <div class="overlay" role="alert">
+        <p class="heading">Could not load map data</p>
+        <p class="body-text">${error}</p>
+        <button class="retry-btn" onClick=${() => location.reload()}>Retry</button>
+      </div>`;
+  }
+
+  const selected = selectedId && model ? nbhdsRef.current.get(selectedId) : null;
+  const activeCount = activeRoute && model ? model.routeCounts[activeRoute] : 0;
+
+  return html`
+    <div id="map"></div>
+
+    ${!model && html`
+      <div class="overlay" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="body-text">${status}</p>
+      </div>`}
+
+    <header class="panel">
+      <div class="search-wrap">
+        <input
+          class="search-input"
+          type="search"
+          placeholder="Search neighborhoods"
+          aria-label="Search neighborhoods"
+          value=${query}
+          disabled=${!model}
+          onInput=${e => setQuery(e.target.value)}
+          onKeyDown=${e => {
+            if (e.key === "Enter" && results && results.length) selectNeighborhood(results[0].id, true);
+            if (e.key === "Escape") setQuery("");
+          }}
+        />
+        ${query && html`
+          <button class="search-clear" aria-label="Clear search" onClick=${() => setQuery("")}>✕</button>`}
+        ${results && html`
+          <nav class="search-results" aria-label="Search results">
+            ${results.length === 0
+              ? html`<p class="search-empty">No neighborhoods match "${query.trim()}"</p>`
+              : results.map(nb => html`
+                <button key=${nb.id} class="search-result" onClick=${() => selectNeighborhood(nb.id, true)}>
+                  <span>${nb.name}</span>
+                  <span class="meta">${nb.boro}</span>
+                </button>`)}
+          </nav>`}
+      </div>
+
+      ${model && html`
+        <div class="chips" role="toolbar" aria-label="Filter by subway line">
+          ${ROUTE_ORDER.map(r => html`
+            <button
+              key=${r}
+              class="chip"
+              aria-pressed=${activeRoute === r}
+              aria-label=${"Filter by " + r + " line"}
+              onClick=${() => setActiveRoute(prev => (prev === r ? null : r))}
+            ><${Bullet} route=${r} /></button>`)}
+        </div>`}
+
+      ${activeRoute && html`
+        <div class="filter-status">
+          <${Bullet} route=${activeRoute} small />
+          <span><b>${activeCount}</b> neighborhoods served</span>
+          <button class="search-clear" style=${{ position: "static", width: "28px", height: "28px", fontSize: "14px" }}
+            aria-label="Clear line filter" onClick=${() => setActiveRoute(null)}>✕</button>
+        </div>`}
+    </header>
+
+    ${selected && html`
+      <section class="details" aria-label="Neighborhood details">
+        <div class="details-head">
+          <div>
+            <p class="label">${selected.boro}</p>
+            <h2 class="heading">${selected.name}</h2>
+          </div>
+          <button class="details-close" aria-label="Close details" onClick=${() => setSelectedId(null)}>✕</button>
+        </div>
+
+        ${selected.routesSorted.length
+          ? html`
+            <div class="details-lines" aria-label="Subway lines serving this neighborhood">
+              ${selected.routesSorted.map(r => html`<${Bullet} key=${r} route=${r} />`)}
+            </div>
+            <div class="details-body">
+              <p class="label" style=${{ marginBottom: "4px" }}>
+                ${selected.stations.length} ${selected.stations.length === 1 ? "station" : "stations"}
+              </p>
+              ${selected.stations.map(s => html`
+                <div class="station-row" key=${s.name}>
+                  <div>
+                    <div class="station-name">${s.name}</div>
+                    <div class="station-bullets">
+                      ${s.routes.map(r => html`<${Bullet} key=${r} route=${r} small />`)}
+                    </div>
+                  </div>
+                  <span class="meta station-dist">${s.inside || s.dist === 0 ? "inside" : "~" + Math.round(s.dist) + " m"}</span>
+                </div>`)}
+              <p class="meta details-note">Stations within ${WALK_BUFFER_M} m of the boundary are included.</p>
+            </div>`
+          : html`<p class="no-service">No subway stations in or within ${WALK_BUFFER_M} m of this area.</p>`}
+      </section>`}
+  `;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(html`<${App} />`);
+})();
+</script>
+</body>
+</html>

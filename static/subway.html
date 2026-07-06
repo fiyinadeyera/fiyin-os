@@ -193,6 +193,59 @@ button { font: inherit; cursor: pointer; }
 }
 .filter-status b { color: var(--text-primary); }
 
+/* Legend: color key for neighborhood fills */
+.legend {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.legend-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  text-align: left;
+}
+.legend-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.legend-chevron { color: var(--text-muted); font-size: 12px; }
+.legend-body { padding: 2px 12px 12px; }
+.legend-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+.legend-item { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+.legend-swatch {
+  flex: 0 0 auto;
+  width: 16px; height: 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+.legend-lines { font-family: var(--mono); font-size: 12px; color: var(--text-secondary); }
+.legend-hint { margin-top: 10px; font-size: 12px; line-height: 1.4; color: var(--text-muted); }
+
+/* Neighborhood name labels (revealed when zoomed in) */
+.leaflet-tooltip.nb-label {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  color: #1A1B1D;
+  font-weight: 700;
+  font-size: 11px;
+  white-space: nowrap;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 4px #fff, 0 0 2px #fff;
+  pointer-events: none;
+}
+.leaflet-tooltip.nb-label::before { display: none; }
+
 /* ============================================================
    Detail sheet (mobile: bottom sheet)
    ============================================================ */
@@ -342,6 +395,21 @@ const ROUTE_COLORS = {
 const DARK_TEXT_ROUTES = new Set(["N","Q","R","W"]);
 const NO_SERVICE_FILL = "#D8D6D0";
 const WALK_BUFFER_M = 500;
+const LABEL_ZOOM = 13; /* neighborhood names appear at or above this zoom level */
+
+/* Trunk-color key: each map color and the daytime routes that share it */
+const LEGEND_GROUPS = [
+  { color: "#EE352E", lines: "1 2 3" },
+  { color: "#00933C", lines: "4 5 6" },
+  { color: "#B933AD", lines: "7" },
+  { color: "#0039A6", lines: "A C E" },
+  { color: "#FF6319", lines: "B D F M" },
+  { color: "#6CBE45", lines: "G" },
+  { color: "#996633", lines: "J Z" },
+  { color: "#A7A9AC", lines: "L" },
+  { color: "#FCCC0A", lines: "N Q R W" },
+  { color: "#808183", lines: "S" }
+];
 
 const NTA_URL = "https://data.cityofnewyork.us/api/geospatial/9nt8-h7nd?method=export&format=GeoJSON";
 const STATIONS_URL = "https://data.ny.gov/resource/39hk-dx4f.json?$limit=1000";
@@ -359,6 +427,32 @@ function geomBbox(geom) {
     if (y > maxY) maxY = y;
   }
   return [minX, minY, maxX, maxY];
+}
+
+/* Area-weighted centroid of a geometry's largest ring, as [lat, lon] for a label. */
+function geomLabelPoint(geom) {
+  const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+  let bestRing = null, bestArea = -1;
+  for (const poly of polys) {
+    const ring = poly[0];
+    let a = 0;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      a += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1];
+    }
+    a = Math.abs(a);
+    if (a > bestArea) { bestArea = a; bestRing = ring; }
+  }
+  if (!bestRing) return null;
+  let cx = 0, cy = 0, area = 0;
+  for (let i = 0, j = bestRing.length - 1; i < bestRing.length; j = i++) {
+    const cross = bestRing[j][0] * bestRing[i][1] - bestRing[i][0] * bestRing[j][1];
+    cx += (bestRing[j][0] + bestRing[i][0]) * cross;
+    cy += (bestRing[j][1] + bestRing[i][1]) * cross;
+    area += cross;
+  }
+  if (area === 0) return [bestRing[0][1], bestRing[0][0]];
+  area /= 2;
+  return [cy / (6 * area), cx / (6 * area)]; /* [lat, lon] */
 }
 
 function pointInRing(x, y, ring) {
@@ -506,6 +600,7 @@ function buildModel(ntaGeo, stationRows) {
       if (n > bestN) { bestN = n; bestColor = c; }
     }
     nb.color = bestColor;
+    nb.center = geomLabelPoint(nb.feature.geometry);
   }
 
   const stations = stationRows
@@ -523,6 +618,10 @@ function buildModel(ntaGeo, stationRows) {
 /* ============================================================
    Small components
    ============================================================ */
+function escapeHtml(s) {
+  return s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
 function Bullet({ route, small }) {
   const cls = "bullet" + (small ? " sm" : "") + (DARK_TEXT_ROUTES.has(route) ? " dark-text" : "");
   return html`<span class=${cls} style=${{ background: ROUTE_COLORS[route] }}>${route}</span>`;
@@ -538,11 +637,13 @@ function App() {
   const [query, setQuery] = useState("");
   const [activeRoute, setActiveRoute] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+  const [legendOpen, setLegendOpen] = useState(true);
 
   const mapRef = useRef(null);
   const layersRef = useRef(new Map());     /* nbhd id -> leaflet layer */
   const nbhdsRef = useRef(new Map());      /* nbhd id -> nbhd model */
   const stationLayerRef = useRef(null);
+  const labelLayerRef = useRef(null);
   const stateRef = useRef({ activeRoute: null, selectedId: null });
   stateRef.current = { activeRoute, selectedId };
 
@@ -600,7 +701,7 @@ function App() {
       }
     } else {
       fillColor = nb.color || NO_SERVICE_FILL;
-      fillOpacity = nb.color ? 0.45 : 0.22;
+      fillOpacity = nb.color ? 0.6 : 0.25;
     }
     if (nb.id === sel) { color = "#17181A"; weight = 3; opacity = 1; }
     return { fillColor, fillOpacity, color, weight, opacity };
@@ -669,6 +770,30 @@ function App() {
     group.addTo(mapRef.current);
     stationLayerRef.current = group;
   }, [model, activeRoute]);
+
+  /* ---- Neighborhood name labels, shown only when zoomed in ---- */
+  useEffect(() => {
+    if (!model || !mapRef.current) return;
+    const map = mapRef.current;
+    const layer = L.layerGroup().addTo(map);
+    labelLayerRef.current = layer;
+
+    const update = () => {
+      layer.clearLayers();
+      if (map.getZoom() < LABEL_ZOOM) return;
+      const bounds = map.getBounds();
+      for (const nb of model.nbhds) {
+        if (!nb.center || !bounds.contains(nb.center)) continue;
+        L.tooltip({ permanent: true, direction: "center", className: "nb-label", interactive: false })
+          .setLatLng(nb.center)
+          .setContent(escapeHtml(nb.name))
+          .addTo(layer);
+      }
+    };
+    update();
+    map.on("zoomend moveend", update);
+    return () => { map.off("zoomend moveend", update); layer.remove(); labelLayerRef.current = null; };
+  }, [model]);
 
   /* ---- Search ---- */
   const results = useMemo(() => {
@@ -758,6 +883,26 @@ function App() {
             ><${Bullet} route=${r} /></button>`)}
         </div>`}
 
+      ${model && !activeRoute && html`
+        <div class="legend">
+          <button class="legend-head" aria-expanded=${legendOpen} aria-label="Toggle color key"
+            onClick=${() => setLegendOpen(o => !o)}>
+            <span class="legend-title">Colored by the line serving each area</span>
+            <span class="legend-chevron" aria-hidden="true">${legendOpen ? "▾" : "▸"}</span>
+          </button>
+          ${legendOpen && html`
+            <div class="legend-body">
+              <div class="legend-grid">
+                ${LEGEND_GROUPS.map(g => html`
+                  <div class="legend-item" key=${g.color}>
+                    <span class="legend-swatch" style=${{ background: g.color }}></span>
+                    <span class="legend-lines">${g.lines}</span>
+                  </div>`)}
+              </div>
+              <p class="legend-hint">Tap an area for its lines and stations. Names appear as you zoom in.</p>
+            </div>`}
+        </div>`}
+
       ${activeRoute && html`
         <div class="filter-status">
           <${Bullet} route=${activeRoute} small />
@@ -794,7 +939,7 @@ function App() {
                       ${s.routes.map(r => html`<${Bullet} key=${r} route=${r} small />`)}
                     </div>
                   </div>
-                  <span class="meta station-dist">${s.inside || s.dist === 0 ? "inside" : "~" + Math.round(s.dist) + " m"}</span>
+                  <span class="meta station-dist">${s.inside || s.dist < 1 ? "inside" : "~" + Math.round(s.dist) + " m"}</span>
                 </div>`)}
               <p class="meta details-note">Stations within ${WALK_BUFFER_M} m of the boundary are included.</p>
             </div>`

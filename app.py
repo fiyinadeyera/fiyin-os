@@ -381,12 +381,12 @@ def rank_events(events, user_goals):
         for i, e in enumerate(events)
     ])
 
-    prompt = f"""Pick the TOP 6 events that best match these goals: {user_goals}
+    prompt = f"""Pick the TOP events (up to 6, fewer if fewer are available) that best match these goals: {user_goals}
 
 Available events:
 {events_text}
 
-Output ONLY the 6 events in this exact format. NO intro text, NO numbers, NO extra text:
+Output ONLY the events in this exact format. NO intro text, NO numbers, NO extra text:
 
 EVENT NAME
 REASON: Why it matches their goals (1 sentence)
@@ -396,7 +396,7 @@ EVENT NAME
 REASON: Why it matches their goals (1 sentence)
 Score: X/10 | FREE or PAID
 
-[repeat for all 6 events]"""
+[repeat for each event, best matches first]"""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",

@@ -75,35 +75,43 @@ TICKETMASTER_KEY = os.environ.get("TICKETMASTER_API_KEY") or _env.get("TICKETMAS
 ANTHROPIC_KEY = os.environ.get("ANTHROPIC_API_KEY") or _env.get("ANTHROPIC_API_KEY")
 EVENTBRITE_KEY = os.environ.get("EVENTBRITE_API_KEY") or _env.get("EVENTBRITE_API_KEY")
 
-SAMPLE_EVENTS = [
-    {
-        "name": "NYC Tech Founders Mixer",
-        "description": "Monthly mixer for startup founders and early employees.",
-        "start": "2026-05-21 19:00",
-        "venue": "Soho House, Manhattan",
-        "is_free": False,
-        "url": "https://example.com",
-    },
+# Sample events use day offsets from "today" instead of hardcoded dates,
+# so the demo fallback works no matter when it is used. Offsets are chosen
+# so every filter combination (today / this-week / next-week, free / paid)
+# always matches at least one event.
+_SAMPLE_EVENT_TEMPLATES = [
     {
         "name": "AI & Machine Learning Meetup NYC",
         "description": "Talks and networking for ML engineers and AI enthusiasts.",
-        "start": "2026-05-22 18:30",
+        "day_offset": 0,
+        "time": "18:30",
         "venue": "Google NYC Office, Chelsea",
         "is_free": True,
         "url": "https://example.com",
     },
     {
+        "name": "NYC Tech Founders Mixer",
+        "description": "Monthly mixer for startup founders and early employees.",
+        "day_offset": 0,
+        "time": "19:00",
+        "venue": "Soho House, Manhattan",
+        "is_free": False,
+        "url": "https://example.com",
+    },
+    {
         "name": "Venture Capital Panel: Investing in 2026",
         "description": "VCs from a16z, Sequoia, and First Round discuss what they're investing in.",
-        "start": "2026-05-20 18:00",
+        "day_offset": 1,
+        "time": "18:00",
         "venue": "Columbia Business School",
         "is_free": True,
         "url": "https://example.com",
     },
     {
-        "name": "Startup Pitch Night — Demo Day",
+        "name": "Startup Pitch Night: Demo Day",
         "description": "10 early-stage startups pitch to investors and operators.",
-        "start": "2026-05-22 19:00",
+        "day_offset": 2,
+        "time": "19:00",
         "venue": "WeWork, Flatiron",
         "is_free": True,
         "url": "https://example.com",
@@ -111,20 +119,39 @@ SAMPLE_EVENTS = [
     {
         "name": "Product Management Summit NYC",
         "description": "Full-day event for PMs with talks on roadmapping and AI tools.",
-        "start": "2026-05-21 09:00",
+        "day_offset": 7,
+        "time": "09:00",
         "venue": "Javits Center",
         "is_free": False,
         "url": "https://example.com",
     },
     {
-        "name": "Brooklyn Running Club — Weekly 5K",
+        "name": "Brooklyn Running Club Weekly 5K",
         "description": "Casual weekly run followed by brunch.",
-        "start": "2026-05-25 08:00",
+        "day_offset": 8,
+        "time": "08:00",
         "venue": "Prospect Park, Brooklyn",
         "is_free": True,
         "url": "https://example.com",
     },
 ]
+
+
+def get_sample_events():
+    """Build sample events with dates relative to today."""
+    today = datetime.now().date()
+    events = []
+    for t in _SAMPLE_EVENT_TEMPLATES:
+        event_date = today + timedelta(days=t["day_offset"])
+        events.append({
+            "name": t["name"],
+            "description": t["description"],
+            "start": f"{event_date.strftime('%Y-%m-%d')} {t['time']}",
+            "venue": t["venue"],
+            "is_free": t["is_free"],
+            "url": t["url"],
+        })
+    return events
 
 
 def fetch_meetup_events():
@@ -534,15 +561,24 @@ def optimize():
                 pass
 
     if not all_events:
-        all_events = SAMPLE_EVENTS
+        all_events = get_sample_events()
         is_live = False
     else:
         is_live = True
 
     # Filter by date
     start_date, end_date = get_date_range(date_filter)
-    all_events = filter_events_by_date(all_events, start_date, end_date)
-    all_events = filter_events_by_price(all_events, price_filter)
+    filtered = filter_events_by_date(all_events, start_date, end_date)
+    filtered = filter_events_by_price(filtered, price_filter)
+
+    # If the filters wiped out the live results, fall back to sample
+    # events so visitors always get a ranked list instead of an error.
+    if not filtered and is_live:
+        is_live = False
+        filtered = filter_events_by_date(get_sample_events(), start_date, end_date)
+        filtered = filter_events_by_price(filtered, price_filter)
+
+    all_events = filtered
 
     if not all_events:
         return jsonify({"error": "No events found for the selected filters"}), 400

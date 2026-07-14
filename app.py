@@ -87,7 +87,7 @@ _SAMPLE_EVENT_TEMPLATES = [
         "time": "18:30",
         "venue": "Google NYC Office, Chelsea",
         "is_free": True,
-        "url": "https://example.com",
+        "url": "",
     },
     {
         "name": "NYC Tech Founders Mixer",
@@ -96,7 +96,7 @@ _SAMPLE_EVENT_TEMPLATES = [
         "time": "19:00",
         "venue": "Soho House, Manhattan",
         "is_free": False,
-        "url": "https://example.com",
+        "url": "",
     },
     {
         "name": "Venture Capital Panel: Investing in 2026",
@@ -105,7 +105,7 @@ _SAMPLE_EVENT_TEMPLATES = [
         "time": "18:00",
         "venue": "Columbia Business School",
         "is_free": True,
-        "url": "https://example.com",
+        "url": "",
     },
     {
         "name": "Startup Pitch Night: Demo Day",
@@ -114,7 +114,7 @@ _SAMPLE_EVENT_TEMPLATES = [
         "time": "19:00",
         "venue": "WeWork, Flatiron",
         "is_free": True,
-        "url": "https://example.com",
+        "url": "",
     },
     {
         "name": "Product Management Summit NYC",
@@ -123,7 +123,7 @@ _SAMPLE_EVENT_TEMPLATES = [
         "time": "09:00",
         "venue": "Javits Center",
         "is_free": False,
-        "url": "https://example.com",
+        "url": "",
     },
     {
         "name": "Brooklyn Running Club Weekly 5K",
@@ -132,7 +132,7 @@ _SAMPLE_EVENT_TEMPLATES = [
         "time": "08:00",
         "venue": "Prospect Park, Brooklyn",
         "is_free": True,
-        "url": "https://example.com",
+        "url": "",
     },
 ]
 
@@ -382,6 +382,8 @@ def rank_events(events, user_goals):
     ])
 
     prompt = f"""Pick the TOP events (up to 6, fewer if fewer are available) that best match these goals: {user_goals}
+
+The goals may contain spelling mistakes or shorthand. Interpret the intent behind them rather than the literal text.
 
 Available events:
 {events_text}

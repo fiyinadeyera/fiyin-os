@@ -10,6 +10,7 @@ app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEBHOOK_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+SIGNALRANK_API_URL = os.environ.get("SIGNALRANK_API_URL", "https://signalrank.onrender.com")
 
 
 def sync_file_from_github(repo_full_name, file_path):
@@ -69,7 +70,7 @@ def index():
 
 @app.route("/signalrank")
 def signalrank():
-    return render_template("signalrank.html", page="signalrank")
+    return render_template("signalrank.html", page="signalrank", api_url=SIGNALRANK_API_URL)
 
 @app.route("/subway")
 def subway():

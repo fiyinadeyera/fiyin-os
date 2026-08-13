@@ -55,52 +55,6 @@ def fetch_ticketmaster_events():
     return events
 
 
-@cache.source("nyc_opendata")
-def fetch_nyc_opendata_events():
-    today = datetime.now().strftime("%Y-%m-%dT00:00:00")
-    end = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%dT00:00:00")
-
-    r = requests.get(
-        "https://data.cityofnewyork.us/resource/tvpp-9vvx.json",
-        params={
-            "$limit": 50,
-            "$where": f"start_date_time >= '{today}' AND start_date_time <= '{end}'",
-            "$order": "start_date_time ASC",
-        },
-        headers={"User-Agent": "Mozilla/5.0"},
-        timeout=10,
-    )
-    r.raise_for_status()
-
-    events = []
-    seen = set()
-    for e in r.json():
-        name = e.get("event_name", "").strip()
-        if not name or name in seen:
-            continue
-        seen.add(name)
-
-        start_raw = e.get("start_date_time", "")
-        try:
-            dt = datetime.fromisoformat(start_raw)
-            start = dt.strftime("%Y-%m-%d %H:%M")
-        except ValueError:
-            start = datetime.now().strftime("%Y-%m-%d 18:00")
-
-        borough = e.get("event_borough", "New York")
-        location = e.get("event_location", borough)
-        event_type = e.get("event_type", "")
-
-        events.append({
-            "name": name[:100],
-            "description": f"{event_type} event in {borough}" if event_type else f"NYC event in {borough}",
-            "start": start,
-            "venue": location[:100] if location else borough,
-            "is_free": True,
-            "url": "https://www.nycgovparks.org/events",
-        })
-    return events[:30]
-
 
 def _sample_date(days_ahead, time_str):
     return (datetime.now() + timedelta(days=days_ahead)).strftime(f"%Y-%m-%d {time_str}")
@@ -122,5 +76,4 @@ def build_sample_events():
 ALL_FETCHERS = [
     fetch_sieve_events,
     fetch_ticketmaster_events,
-    fetch_nyc_opendata_events,
 ]

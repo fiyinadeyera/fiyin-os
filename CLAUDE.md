@@ -31,7 +31,7 @@ This order is a deliberate editorial decision. Do not reorder without asking.
 
 | File | Responsibility |
 |---|---|
-| `app.py` | Flask routes and orchestration. Contains legacy SignalRank code (Selenium scrapers, ranking, caching) that is superseded by the standalone SignalRank repo. |
+| `app.py` | Flask routes, template rendering, and GitHub webhook. Hub only, no business logic. |
 | `templates/base.html` | Shared layout: nav bar, Tailwind, Satoshi font, dark slate theme. |
 | `templates/index.html` | Homepage with project cards. |
 | `templates/*.html` | Individual project pages (signalrank, agent, risk, events, lunch). |
@@ -43,7 +43,7 @@ This order is a deliberate editorial decision. Do not reorder without asking.
 - Satoshi font via Fontshare
 - Dark slate theme (bg-slate-950, text-slate-100)
 - GitHub webhook for auto-deploying file changes on push
-- SignalRank on this app is the old monolithic version. The current SignalRank lives in its own repo (fiyinadeyera/SignalRank).
+- SignalRank lives in its own repo (fiyinadeyera/SignalRank). The /signalrank route here renders the template, but the /api/optimize endpoint needs to point to the standalone SignalRank deployment once it's live on Render.
 
 ## Design system
 
@@ -72,4 +72,4 @@ This order is a deliberate editorial decision. Do not reorder without asking.
 
 ## Secrets (never commit)
 
-- `.env` contains API keys (Anthropic, Ticketmaster, Eventbrite, Meetup, GitHub webhook secret, GitHub token)
+- `.env` contains GitHub webhook secret and GitHub token

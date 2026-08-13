@@ -118,15 +118,15 @@ def optimize():
 
     all_events = []
     with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = {executor.submit(fn): fn.__name__ for fn in sources.ALL_FETCHERS}
-        for future in as_completed(futures):
-            name = futures[future]
-            try:
-                timeout = 120 if "sieve" in name else 30
-                result = future.result(timeout=timeout)
-                all_events.extend(result)
-            except Exception:
-                pass
+        futures = [executor.submit(fn) for fn in sources.ALL_FETCHERS]
+        try:
+            for future in as_completed(futures, timeout=25):
+                try:
+                    all_events.extend(future.result(timeout=0))
+                except Exception:
+                    pass
+        except TimeoutError:
+            pass
 
     if not all_events:
         all_events = sources.build_sample_events()

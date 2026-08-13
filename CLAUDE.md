@@ -31,7 +31,13 @@ This order is a deliberate editorial decision. Do not reorder without asking.
 
 | File | Responsibility |
 |---|---|
-| `app.py` | Flask routes, template rendering, and GitHub webhook. Hub only, no business logic. |
+| `app.py` | Flask routes, SignalRank API (/api/optimize, /api/status), GitHub webhook, background cache warming. |
+| `cache.py` | In-memory cache with 1-hour TTL and per-source health tracking. |
+| `sources.py` | Event fetchers (Sieve, Ticketmaster, NYC Open Data, sample events). |
+| `sieve.py` | Sieve API client for web extraction (events and host profiles). |
+| `ranking.py` | Claude prompt building and event ranking. Returns JSON array of scored events. |
+| `filters.py` | Date range calculation and event filtering. |
+| `enrichment.py` | Host/speaker profile lookup via Google search through Sieve. |
 | `templates/base.html` | Shared layout: nav bar, Tailwind, Satoshi font, dark slate theme. |
 | `templates/index.html` | Homepage with project cards. |
 | `templates/*.html` | Individual project pages (signalrank, agent, risk, events, lunch). |
@@ -43,7 +49,9 @@ This order is a deliberate editorial decision. Do not reorder without asking.
 - Satoshi font via Fontshare
 - Dark slate theme (bg-slate-950, text-slate-100)
 - GitHub webhook for auto-deploying file changes on push
-- SignalRank lives in its own repo (fiyinadeyera/SignalRank). The /signalrank route here renders the template, but the /api/optimize endpoint needs to point to the standalone SignalRank deployment once it's live on Render.
+- SignalRank's modular backend code lives in this repo (not deployed separately). The SignalRank repo is the reference, but fiyin-os is what runs at fiyin.org.
+- API request timeout capped at 25 seconds (Render kills at 30s).
+- Background thread warms event cache every 55 minutes.
 
 ## Design system
 
@@ -72,4 +80,4 @@ This order is a deliberate editorial decision. Do not reorder without asking.
 
 ## Secrets (never commit)
 
-- `.env` contains GitHub webhook secret and GitHub token
+- `.env` contains API keys (Anthropic, Sieve, Ticketmaster, GitHub webhook secret, GitHub token)

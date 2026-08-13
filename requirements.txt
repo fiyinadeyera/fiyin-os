@@ -1,7 +1,5 @@
-flask
-gunicorn
-python-dotenv
-requests
-anthropic
-selenium
-webdriver-manager
+flask>=3.0
+gunicorn>=21.2
+python-dotenv>=1.0
+requests>=2.31
+anthropic>=0.25

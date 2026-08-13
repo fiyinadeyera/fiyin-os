@@ -1,19 +1,28 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
 import os
 import hmac
 import hashlib
-import requests
 import base64
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from flask import Flask, render_template, request, jsonify, send_from_directory
+
+import cache
+import sources
+import ranking
+import filters
+import enrichment
 
 app = Flask(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEBHOOK_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
-SIGNALRANK_API_URL = os.environ.get("SIGNALRANK_API_URL", "https://signalrank.onrender.com")
 
 
 def sync_file_from_github(repo_full_name, file_path):
+    import requests
     headers = {"Accept": "application/vnd.github+json"}
     if GITHUB_TOKEN:
         headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
@@ -70,7 +79,7 @@ def index():
 
 @app.route("/signalrank")
 def signalrank():
-    return render_template("signalrank.html", page="signalrank", api_url=SIGNALRANK_API_URL)
+    return render_template("signalrank.html", page="signalrank")
 
 @app.route("/subway")
 def subway():
@@ -91,6 +100,80 @@ def events():
 @app.route("/lunch")
 def lunch():
     return render_template("lunch.html", page="lunch")
+
+
+@app.route("/api/status")
+def api_status():
+    return jsonify(cache.get_all_status())
+
+
+@app.route("/api/optimize", methods=["POST"])
+def optimize():
+    data = request.json
+    goals = data.get("goals", "")
+    date_filter = data.get("dateFilter", "this-week")
+
+    if not goals:
+        return jsonify({"error": "Please enter your goals"}), 400
+
+    all_events = []
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {executor.submit(fn): fn.__name__ for fn in sources.ALL_FETCHERS}
+        for future in as_completed(futures):
+            name = futures[future]
+            try:
+                timeout = 120 if "sieve" in name else 30
+                result = future.result(timeout=timeout)
+                all_events.extend(result)
+            except Exception:
+                pass
+
+    if not all_events:
+        all_events = sources.build_sample_events()
+        is_live = False
+    else:
+        is_live = True
+        start_date, end_date = filters.get_date_range(date_filter)
+        all_events = filters.filter_by_date(all_events, start_date, end_date)
+
+        if not all_events:
+            all_events = sources.build_sample_events()
+            is_live = False
+
+    all_events = enrichment.enrich_events(all_events)
+
+    try:
+        ranked = ranking.rank_events(all_events, goals)
+        return jsonify({
+            "success": True,
+            "ranking": ranked,
+            "events": all_events,
+            "is_live": is_live,
+            "event_count": len(all_events),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+def _warm_cache():
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = [executor.submit(fn) for fn in sources.ALL_FETCHERS]
+        for f in as_completed(futures):
+            try:
+                f.result(timeout=120)
+            except Exception:
+                pass
+
+
+def _cache_refresh_loop():
+    _warm_cache()
+    while True:
+        time.sleep(55 * 60)
+        _warm_cache()
+
+
+_bg_thread = threading.Thread(target=_cache_refresh_loop, daemon=True)
+_bg_thread.start()
 
 
 if __name__ == "__main__":

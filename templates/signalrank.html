@@ -132,35 +132,19 @@
         return div.innerHTML;
     }
 
-    function parseResults(text) {
-        const events = [];
-        const lines = text.split('\n').map(line => line.trim()).filter(line => line);
-        let currentEvent = null;
-        let skipUntilFirstEvent = true;
-        for (const line of lines) {
-            if (line.startsWith('Score:')) {
-                if (currentEvent) {
-                    const scoreMatch = line.match(/Score:\s*(\d+)\/10\s*\|\s*(FREE|PAID)/i);
-                    if (scoreMatch) {
-                        currentEvent.score = scoreMatch[1] + '/10';
-                        currentEvent.isPaid = scoreMatch[2].toUpperCase() === 'PAID';
-                        events.push(currentEvent);
-                        skipUntilFirstEvent = false;
-                    }
-                }
-                currentEvent = null;
-            } else if (skipUntilFirstEvent && !line.match(/^[A-Z]/)) {
-                continue;
-            } else if (line.startsWith('REASON:')) {
-                if (currentEvent) currentEvent.reason = line.replace('REASON:', '').trim();
-            } else if (currentEvent === null && line && !line.includes('Score:')) {
-                currentEvent = { name: line, description: '', reason: '', score: '?/10', isPaid: false };
-            } else if (currentEvent && !line.startsWith('Score:') && !line.startsWith('REASON:') && line) {
-                if (currentEvent.description) currentEvent.description += ' ' + line;
-                else currentEvent.description = line;
-            }
+    function parseResults(ranking, allEvents) {
+        if (Array.isArray(ranking)) {
+            return ranking.map(e => {
+                const full = allEvents.find(ev => ev.name.toLowerCase() === (e.name || '').toLowerCase());
+                return {
+                    name: e.name || '',
+                    reason: e.reason || '',
+                    score: (e.score || '?') + '/10',
+                    isPaid: full ? !full.is_free : false,
+                };
+            });
         }
-        return events.slice(0, 6);
+        return [];
     }
 
     function setButtonGroupState(buttons, activeBtn) {
@@ -276,7 +260,7 @@
         submitBtn.disabled = true; submitBtn.classList.add("opacity-70","cursor-not-allowed"); submitBtn.textContent = "Finding...";
 
         try {
-            const response = await fetch("{{ api_url }}/api/optimize", {
+            const response = await fetch("/api/optimize", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ goals, dateFilter, priceFilter })
@@ -288,8 +272,8 @@
                 return;
             }
 
-            const rankedEvents = parseResults(data.ranking);
             const allEvents    = data.events || [];
+            const rankedEvents = parseResults(data.ranking, allEvents);
             const savedEvents  = JSON.parse(localStorage.getItem('savedEvents') || '{}');
             window.currentRankedEvents = rankedEvents;
             window.currentAllEvents    = allEvents;

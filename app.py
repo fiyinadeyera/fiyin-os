@@ -4,7 +4,6 @@ import hashlib
 import base64
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from flask import Flask, render_template, request, jsonify, send_from_directory
 
@@ -116,17 +115,14 @@ def optimize():
     if not goals:
         return jsonify({"error": "Please enter your goals"}), 400
 
+    # Non-blocking: return whatever is cached now and let any needed fetch run in
+    # the background (single-flight). The request never waits on Sieve, so it can't
+    # be killed at Render's 30s limit and retried into a duplicate job.
     all_events = []
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = [executor.submit(fn) for fn in sources.ALL_FETCHERS]
-        try:
-            for future in as_completed(futures, timeout=25):
-                try:
-                    all_events.extend(future.result(timeout=0))
-                except Exception:
-                    pass
-        except TimeoutError:
-            pass
+    for name, fn in sources.SOURCES:
+        data = cache.get_or_start(name, fn)
+        if data:
+            all_events.extend(data)
 
     if not all_events:
         all_events = sources.build_sample_events()
@@ -156,13 +152,23 @@ def optimize():
 
 
 def _warm_cache():
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = [executor.submit(fn) for fn in sources.ALL_FETCHERS]
-        for f in as_completed(futures):
-            try:
-                f.result(timeout=120)
-            except Exception:
-                pass
+    # Force a refresh (single-flight) so the cache is repopulated before its TTL
+    # expires and users keep hitting warm data instead of triggering fresh jobs.
+    for name, fn in sources.SOURCES:
+        try:
+            cache.fetch_async(name, fn).result(timeout=130)
+        except Exception:
+            pass
+
+    # Pre-warm host enrichment from the cached events so the first user search
+    # doesn't trigger the (uncached, slow) Sieve profile lookup itself.
+    warmed = []
+    for name, _fn in sources.SOURCES:
+        cached = cache.get_cached(name)
+        if cached:
+            warmed.extend(cached)
+    if warmed:
+        enrichment.enrich_events(warmed)
 
 
 def _cache_refresh_loop():

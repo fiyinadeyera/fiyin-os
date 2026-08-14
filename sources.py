@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import requests
 from dotenv import dotenv_values
 
-import cache
 import sieve
 
 _env = dotenv_values(os.path.join(os.path.dirname(__file__), ".env"))
@@ -14,12 +13,10 @@ TICKETMASTER_KEY = os.environ.get("TICKETMASTER_API_KEY") or _env.get("TICKETMAS
 sieve.API_KEY = os.environ.get("SIEVE_API_KEY") or _env.get("SIEVE_API_KEY", "")
 
 
-@cache.source("sieve")
 def fetch_sieve_events():
     return sieve.fetch_events()
 
 
-@cache.source("ticketmaster")
 def fetch_ticketmaster_events():
     if not TICKETMASTER_KEY or TICKETMASTER_KEY == "your_key_here":
         raise RuntimeError("TICKETMASTER_API_KEY not set")
@@ -55,7 +52,6 @@ def fetch_ticketmaster_events():
     return events
 
 
-
 def _sample_date(days_ahead, time_str):
     return (datetime.now() + timedelta(days=days_ahead)).strftime(f"%Y-%m-%d {time_str}")
 
@@ -73,7 +69,9 @@ def build_sample_events():
     ]
 
 
-ALL_FETCHERS = [
-    fetch_sieve_events,
-    fetch_ticketmaster_events,
+# (cache_key, fetcher) pairs. The caller decides whether to block on the fetch or
+# kick it off in the background through cache single-flight.
+SOURCES = [
+    ("sieve", fetch_sieve_events),
+    ("ticketmaster", fetch_ticketmaster_events),
 ]

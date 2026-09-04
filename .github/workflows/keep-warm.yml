@@ -1,0 +1,24 @@
+name: Keep fiyin.org warm
+
+# Render's free web tier spins the app down after ~15 min of no inbound traffic,
+# so the next visitor waits ~30-60s for a cold start. This pings the front door
+# on a schedule to keep it awake. Only fiyin.org is pinged: keeping more than one
+# free service always-on would exceed Render's monthly free running-hours pool.
+#
+# Note: GitHub's scheduler is best-effort and can run late, so a rare cold start
+# may still slip through. GitHub also disables scheduled workflows after 60 days
+# with no repo commits; any push re-enables it.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # every 10 minutes
+  workflow_dispatch: {}     # allow a manual run from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping fiyin.org
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 https://fiyin.org/ || echo "000")
+          echo "fiyin.org responded: $code"

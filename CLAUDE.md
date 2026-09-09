@@ -18,9 +18,10 @@ Fiyin's AI projects hub. A single Flask app that hosts all projects as routes. T
 3. Subway Map - /subway
 4. MyRAG (Live) - external link to myrag-o7eu.onrender.com
 5. Lunch Specials - /lunch
-6. Orbit (In progress) - not linked
-7. Agent (In progress) - not linked
-8. Risk (In progress) - not linked
+6. Delta - external link to delta-rqyz.onrender.com
+7. Orbit (In progress) - not linked
+8. Agent (In progress) - not linked
+9. Risk (In progress) - not linked
 
 This order is a deliberate editorial decision. Do not reorder without asking.
 

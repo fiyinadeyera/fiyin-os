@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}fiyin{% endblock %}</title>
+{% block meta_og %}
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://fiyin.org">
+    <meta property="og:title" content="fiyin - what I'm building">
+    <meta property="og:description" content="Everything I'm building with AI lives here - prototypes, tools, experiments. Anything I ship lands on fiyin.org.">
+    <meta property="og:image" content="https://fiyin.org/static/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+{% endblock %}
     <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>

@@ -18,11 +18,12 @@ Fiyin's AI projects hub. A single Flask app that hosts all projects as routes. T
 2. SidelineReel - external link to sidelinereel-coach-review.onrender.com
 3. Orbit - external link to orbit-web-xg5f.onrender.com
 4. Subway Map - /subway
-5. MyRAG (Live) - external link to myrag-o7eu.onrender.com
-6. Lunch Specials - /lunch
-7. Delta - external link to delta-rqyz.onrender.com
-8. Agent (In progress) - not linked
-9. Risk (In progress) - not linked
+5. Class Arcade - external link to wemadegames.github.io/play
+6. MyRAG (Live) - external link to myrag-o7eu.onrender.com
+7. Lunch Specials - /lunch
+8. Delta - external link to delta-rqyz.onrender.com
+9. Agent (In progress) - not linked
+10. Risk (In progress) - not linked
 
 This order is a deliberate editorial decision. Do not reorder without asking.
 

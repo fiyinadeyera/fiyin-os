@@ -10,6 +10,7 @@ Fiyin's AI projects hub. A single Flask app that hosts all projects as routes. T
 - Each project is either a Flask route (renders a template) or a static file served via `send_from_directory`
 - Projects with "Live" badge are functional. "In progress" projects are greyed out and not clickable.
 - Only SignalRank and MyRAG have the Live badge. Other projects do not.
+- Every clickable project card opens in a new tab (`target="_blank"`), so the hub stays open behind it. This applies to internal routes and external links alike.
 
 ### Current project order on homepage
 
